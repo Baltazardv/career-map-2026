@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Career Map — Baltazar Dimayuga</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0e1a; font-family: 'DM Sans', sans-serif; overflow: hidden; width: 100vw; height: 100vh; user-select: none; }
+
+  #toolbar {
+    position: fixed; top: 0; left: 0; right: 0; height: 52px;
+    padding: 0 20px; background: #0d1220;
+    border-bottom: 1px solid rgba(244,163,0,0.3);
+    display: flex; align-items: center; gap: 10px; z-index: 100;
+  }
+  #toolbar h1 { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px; color: #f4a300; }
+  #toolbar .sub { font-size: 10px; color: #6b7db3; flex: 1; }
+  .btn { padding: 5px 12px; border-radius: 6px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 600; transition: all 0.15s; white-space: nowrap; }
+  .btn-orange { background: #c8894a; color: #fff8f0; }
+  .btn-orange:hover { background: #d9a060; }
+  .btn-blue { background: #1a56db; color: white; }
+  .btn-blue:hover { background: #2563eb; }
+  .btn-green { background: #16a34a; color: white; }
+  .btn-green:hover { background: #15803d; }
+  .btn-ghost { background: transparent; color: #6b7db3; border: 1px solid #2a3a5a; }
+  .btn-ghost:hover { color: #a8b8d8; }
+  .sep { width: 1px; height: 28px; background: #1c2438; margin: 0 2px; }
+
+  #hint { position: fixed; bottom: 14px; right: 20px; font-size: 10px; color: #2a3a5a; }
+
+  #tooltip { position: fixed; background: #111827; border: 1px solid rgba(244,163,0,0.4); border-radius: 8px; padding: 10px 14px; max-width: 240px; pointer-events: none; display: none; z-index: 300; }
+  #tooltip h3 { font-size: 12px; color: #f4a300; margin-bottom: 4px; font-weight: 600; }
+  #tooltip p { font-size: 11px; color: #8899bb; line-height: 1.5; }
+
+  #ctx-menu { position: fixed; background: #111827; border: 1px solid #2a3a5a; border-radius: 8px; padding: 6px 0; z-index: 400; display: none; min-width: 170px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  #ctx-menu .menu-item { padding: 8px 16px; font-size: 12px; color: #a8b8d8; cursor: pointer; }
+  #ctx-menu .menu-item:hover { background: #1c2438; color: white; }
+  #ctx-menu .danger { color: #e74c3c; }
+  #ctx-menu .danger:hover { background: #2a1a1a; }
+  #ctx-menu hr { border: none; border-top: 1px solid #1c2438; margin: 4px 0; }
+
+  #modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 500; }
+  #modal-overlay.show { display: flex; }
+  #modal { background: #111827; border: 1px solid rgba(244,163,0,0.3); border-radius: 12px; padding: 24px; width: 380px; }
+  #modal h2 { font-family: 'Bebas Neue', sans-serif; color: #f4a300; font-size: 18px; letter-spacing: 2px; margin-bottom: 14px; }
+  #modal label { font-size: 11px; color: #6b7db3; display: block; margin-bottom: 5px; }
+  #modal input, #modal textarea, #modal select {
+    width: 100%; background: #0a0e1a; border: 1px solid #2a3a5a; color: #a8b8d8;
+    border-radius: 6px; padding: 8px 12px; font-family: 'DM Sans', sans-serif;
+    font-size: 13px; outline: none; margin-bottom: 12px;
+  }
+  #modal input:focus, #modal textarea:focus, #modal select:focus { border-color: #f4a300; }
+  #modal textarea { resize: vertical; min-height: 55px; }
+  #modal select option { background: #111827; }
+  .modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
+  .modal-btns button { padding: 7px 16px; border-radius: 6px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; }
+  .btn-confirm { background: #f4a300; color: #0a0e1a; }
+  .btn-cancel { background: #1c2438; color: #6b7db3; }
+</style>
+</head>
+<body>
+<div id="toolbar">
+  <h1>CAREER MAP</h1>
+  <span class="sub">Baltazar Dimayuga · Data Analyst Jr · 2026</span>
+  <button class="btn btn-orange" onclick="openAddModal('branch')">+ Rama</button>
+  <button class="btn btn-green" onclick="openAddModal('subbranch')">+ Subrama</button>
+  <button class="btn btn-blue" onclick="openAddModal('leaf')">+ Nodo</button>
+  <div class="sep"></div>
+  <button class="btn btn-ghost" onclick="autoLayout()">⚙ Ordenar</button>
+  <button class="btn btn-ghost" onclick="resetView()">⌖ Centrar</button>
+  <button class="btn btn-ghost" onclick="showHelp()">? Ayuda</button>
+</div>
+
+<canvas id="map"></canvas>
+<div id="tooltip"><h3 id="tt-title"></h3><p id="tt-body"></p></div>
+
+<div id="ctx-menu">
+  <div class="menu-item" onclick="ctxEdit()">✏️ Editar</div>
+  <div class="menu-item" id="ctx-add-branch-item" onclick="ctxAddBranch()">🟠 Agregar subrama</div>
+  <div class="menu-item" onclick="ctxAddLeaf()">🔵 Agregar nodo hijo</div>
+  <hr>
+  <div class="menu-item danger" onclick="ctxDelete()">🗑️ Eliminar (con hijos)</div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal">
+    <h2 id="modal-title">AGREGAR NODO</h2>
+    <label>Etiqueta</label>
+    <input type="text" id="modal-label" placeholder="Ej: E-commerce Analyst">
+    <label>Descripción (tooltip)</label>
+    <textarea id="modal-info" placeholder="Descripción breve..."></textarea>
+    <div id="parent-selector-wrap">
+      <label>Conectar a</label>
+      <select id="modal-parent"></select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-confirm" id="modal-confirm" onclick="confirmModal()">Agregar</button>
+    </div>
+  </div>
+</div>
+<div id="hint">Click derecho = opciones · Arrastra nodos · Scroll = zoom · ⚙ Ordenar = distribuir automáticamente</div>
+
+<script>
+const canvas = document.getElementById('map');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; render(); }
+window.addEventListener('resize', resize);
+
+// ── NODE TYPES ──
+// center: WHY node
+// branch: main branches (orange ellipse)
+// subbranch: sub-branches (smaller orange ellipse)
+// leaf: leaf nodes (dark circle)
+
+let camX = 0, camY = 0, scale = 0.78;
+let nextId = 500;
+
+const COLORS = {
+  center: '#1a56db',
+  branch: '#c8894a',
+  subbranch: '#9b6835',
+  leaf: '#1c2438',
+};
+
+const nodes = [
+  { id:'center', type:'center', label:'WHY\nBaltazar', info:'Dejar huella real con datos. Autonomía. Impacto. Demostrar que desde Guerrero se compite con cualquiera.', ox:0, oy:0, parentId:null },
+
+  // Main branches — evenly spaced around center
+  { id:'b1', type:'branch', label:'Áreas de\nTrabajo',    info:'', ox:0, oy:0, parentId:'center' },
+  { id:'b2', type:'branch', label:'Industrias',            info:'', ox:0, oy:0, parentId:'center' },
+  { id:'b3', type:'branch', label:'Vacantes',              info:'', ox:0, oy:0, parentId:'center' },
+  { id:'b4', type:'branch', label:'Dónde buscar',          info:'', ox:0, oy:0, parentId:'center' },
+  { id:'b5', type:'branch', label:'Tipo de Empresa',       info:'', ox:0, oy:0, parentId:'center' },
+  { id:'b6', type:'branch', label:'Cursos Clave',          info:'', ox:0, oy:0, parentId:'center' },
+  { id:'b7', type:'branch', label:'Mentores',              info:'', ox:0, oy:0, parentId:'center' },
+  { id:'b8', type:'branch', label:'Tools & Stack',         info:'', ox:0, oy:0, parentId:'center' },
+
+  // Áreas de Trabajo leaves
+  { id:'l1',  type:'leaf', label:'Data Analyst Jr',    info:'Rol objetivo inmediato. Análisis, dashboards y KPIs.',        ox:0, oy:0, parentId:'b1' },
+  { id:'l2',  type:'leaf', label:'BI Analyst',          info:'Business Intelligence con Power BI y DAX.',                   ox:0, oy:0, parentId:'b1' },
+  { id:'l3',  type:'leaf', label:'E-commerce\nAnalyst', info:'Métricas de tiendas en línea. Experiencia real en OK Latino.',ox:0, oy:0, parentId:'b1' },
+  { id:'l4',  type:'leaf', label:'Gaming\nAnalytics',   info:'Comportamiento de jugadores. +16,000 registros gaming.',       ox:0, oy:0, parentId:'b1' },
+  { id:'l5',  type:'leaf', label:'Fraud\nDetection',    info:'Detección de anomalías fintech. Cert. Palo Alto + judicial.',  ox:0, oy:0, parentId:'b1' },
+  { id:'l6',  type:'leaf', label:'Sports\nAnalytics',   info:'Estadísticas deportivas. Kings League en CV.',                ox:0, oy:0, parentId:'b1' },
+  { id:'l7',  type:'leaf', label:'AI Data\nTrainer',    info:'Preparar datos para IA. En proceso activo con Micro1.',       ox:0, oy:0, parentId:'b1' },
+  { id:'l8',  type:'leaf', label:'Health\nAnalytics',   info:'Fitness tech. Transformación física propia = credibilidad.',  ox:0, oy:0, parentId:'b1' },
+
+  // Industrias
+  { id:'l9',  type:'leaf', label:'E-commerce\n& Retail', info:'Primera prioridad. Experiencia directa en OK Latino.',      ox:0, oy:0, parentId:'b2' },
+  { id:'l10', type:'leaf', label:'Fintech',               info:'Alta demanda. Fit con certificación Palo Alto.',             ox:0, oy:0, parentId:'b2' },
+  { id:'l11', type:'leaf', label:'Gaming &\nEntrete.',    info:'Pasión genuina. Proyecto +16,000 registros.',               ox:0, oy:0, parentId:'b2' },
+  { id:'l12', type:'leaf', label:'AI & ML',               info:'Mercado en explosión. Roles remotos en USD.',               ox:0, oy:0, parentId:'b2' },
+  { id:'l13', type:'leaf', label:'Automotriz\nS&P',       info:'Aplicación activa en S&P Global Mobility.',                 ox:0, oy:0, parentId:'b2' },
+
+  // Vacantes
+  { id:'l14', type:'leaf', label:'Data\nAnalyst Jr',      info:'Rol principal. Junior a Mid-level.',                        ox:0, oy:0, parentId:'b3' },
+  { id:'l15', type:'leaf', label:'Statistical\nConsult.', info:'Activo con Micro1. $62-120 USD/hr remoto.',                 ox:0, oy:0, parentId:'b3' },
+  { id:'l16', type:'leaf', label:'BI Analyst',             info:'Business Intelligence con Power BI.',                      ox:0, oy:0, parentId:'b3' },
+  { id:'l17', type:'leaf', label:'Data\nScientist Jr',    info:'Meta a mediano plazo. Fortalecer ML.',                      ox:0, oy:0, parentId:'b3' },
+
+  // Dónde buscar
+  { id:'l18', type:'leaf', label:'LinkedIn',               info:'Búsqueda activa + contenido semanal.',                     ox:0, oy:0, parentId:'b4' },
+  { id:'l19', type:'leaf', label:'Indeed / OCC',           info:'Vacantes del mercado mexicano.',                           ox:0, oy:0, parentId:'b4' },
+  { id:'l20', type:'leaf', label:'Turing / Toptal',        info:'Posiciones remotas en USD.',                              ox:0, oy:0, parentId:'b4' },
+  { id:'l21', type:'leaf', label:'Job Scraper\nPropio',    info:'Python + ML para matching automático.',                    ox:0, oy:0, parentId:'b4' },
+
+  // Tipo empresa
+  { id:'l22', type:'leaf', label:'Corporativo\nGlobal',    info:'S&P Global, Deloitte. Estabilidad y marca.',              ox:0, oy:0, parentId:'b5' },
+  { id:'l23', type:'leaf', label:'Startup Tech',           info:'Kavak, Clip. Autonomía y cultura data-driven.',            ox:0, oy:0, parentId:'b5' },
+  { id:'l24', type:'leaf', label:'AI Remote\nFirst',       info:'Micro1, Outlier. Contratos USD, 100% remoto.',             ox:0, oy:0, parentId:'b5' },
+
+  // Cursos
+  { id:'l25', type:'leaf', label:'Power BI\nAvanzado',     info:'Certificación PL-300 Microsoft. Alta prioridad.',          ox:0, oy:0, parentId:'b6' },
+  { id:'l26', type:'leaf', label:'SQL Avanzado',           info:'Window functions, CTEs. Alto ROI en entrevistas.',         ox:0, oy:0, parentId:'b6' },
+  { id:'l27', type:'leaf', label:'Machine\nLearning',      info:'Scikit-learn, XGBoost. Base con churn 72% accuracy.',      ox:0, oy:0, parentId:'b6' },
+  { id:'l28', type:'leaf', label:'Inglés C1',              info:'Mayor impacto en salario que cualquier habilidad técnica.', ox:0, oy:0, parentId:'b6' },
+
+  // Mentores
+  { id:'l29', type:'leaf', label:'Jonathan\nBernal',       info:'Career Coach TripleTen. Guía en búsqueda de empleo.',      ox:0, oy:0, parentId:'b7' },
+  { id:'l30', type:'leaf', label:'Comunidad\nTripleTen',   info:'Red de egresados LATAM. Referidos y networking.',          ox:0, oy:0, parentId:'b7' },
+  { id:'l31', type:'leaf', label:'LinkedIn\nMentors',      info:'Data Analysts con 3-5 años en roles objetivo.',            ox:0, oy:0, parentId:'b7' },
+
+  // Tools
+  { id:'l32', type:'leaf', label:'Python\n& Pandas',       info:'Stack principal avanzado. NumPy, Matplotlib, Scikit-learn.',ox:0, oy:0, parentId:'b8' },
+  { id:'l33', type:'leaf', label:'SQL / MySQL',            info:'Avanzado. DML/DDL, joins complejos.',                      ox:0, oy:0, parentId:'b8' },
+  { id:'l34', type:'leaf', label:'Power BI\n& DAX',        info:'Intermedio. Dashboards y KPIs.',                           ox:0, oy:0, parentId:'b8' },
+  { id:'l35', type:'leaf', label:'Git / GitHub',           info:'Portfolio público con proyectos documentados.',             ox:0, oy:0, parentId:'b8' },
+];
+
+// ── AUTO LAYOUT ───────────────────────────────────────────────────────────────
+function autoLayout() {
+  const center = nodes.find(n => n.type === 'center');
+  center.ox = 0; center.oy = 0;
+
+  const branches = nodes.filter(n => n.parentId === 'center');
+  const branchR = 240;
+  branches.forEach((b, i) => {
+    const angle = (2 * Math.PI / branches.length) * i - Math.PI / 2;
+    b.ox = Math.cos(angle) * branchR;
+    b.oy = Math.sin(angle) * branchR;
+
+    // Children of this branch (subbranches or leaves)
+    const children = nodes.filter(n => n.parentId === b.id);
+    layoutChildren(children, b, angle, 150, 110);
+  });
+  render();
+}
+
+function layoutChildren(children, parent, parentAngle, dist, spread) {
+  if (children.length === 0) return;
+  const half = ((children.length - 1) / 2);
+  const step = children.length > 1 ? spread / (children.length - 1) : 0;
+  children.forEach((c, i) => {
+    const angle = parentAngle + (i - half) * (step * Math.PI / 180);
+    c.ox = parent.ox + Math.cos(angle) * dist;
+    c.oy = parent.oy + Math.sin(angle) * dist;
+
+    // If subbranch, layout its own children
+    if (c.type === 'subbranch') {
+      const grandchildren = nodes.filter(n => n.parentId === c.id);
+      layoutChildren(grandchildren, c, angle, 130, 80);
+    }
+  });
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function worldToScreen(ox, oy) {
+  return { x: W/2 + camX + ox * scale, y: H/2 + 26 + camY + oy * scale };
+}
+function screenToWorld(sx, sy) {
+  return { ox: (sx - W/2 - camX) / scale, oy: (sy - H/2 - 26 - camY) / scale };
+}
+
+function nodeRadius(n) {
+  if (n.type === 'center') return 70;
+  if (n.type === 'branch') return 55;
+  if (n.type === 'subbranch') return 44;
+  return 34;
+}
+
+function nodeAt(sx, sy) {
+  const w = screenToWorld(sx, sy);
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const n = nodes[i];
+    const dx = w.ox - n.ox, dy = w.oy - n.oy;
+    if (n.type === 'branch' || n.type === 'subbranch') {
+      const rx = nodeRadius(n) * 1.2, ry = nodeRadius(n) * 0.55;
+      if ((dx*dx)/(rx*rx) + (dy*dy)/(ry*ry) <= 1) return n;
+    } else {
+      const r = nodeRadius(n);
+      if (dx*dx + dy*dy <= r*r) return n;
+    }
+  }
+  return null;
+}
+
+function render() {
+  if (!W) return;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0a0e1a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Lines
+  nodes.forEach(n => {
+    if (!n.parentId) return;
+    const p = nodes.find(x => x.id === n.parentId);
+    if (!p) return;
+    const ps = worldToScreen(p.ox, p.oy);
+    const ns2 = worldToScreen(n.ox, n.oy);
+    ctx.beginPath();
+    ctx.moveTo(ps.x, ps.y);
+    ctx.lineTo(ns2.x, ns2.y);
+    if (n.type === 'subbranch') ctx.strokeStyle = 'rgba(160,110,60,0.35)';
+    else if (n.type === 'branch') ctx.strokeStyle = 'rgba(200,137,74,0.3)';
+    else ctx.strokeStyle = 'rgba(100,130,200,0.15)';
+    ctx.lineWidth = n.type === 'leaf' ? 1 : 1.5;
+    ctx.stroke();
+  });
+
+  // Nodes (draw center last so it's on top)
+  const drawOrder = [...nodes].sort((a, b) => {
+    const order = { leaf: 0, subbranch: 1, branch: 2, center: 3 };
+    return order[a.type] - order[b.type];
+  });
+
+  drawOrder.forEach(n => {
+    const s = worldToScreen(n.ox, n.oy);
+    const isHov = n.id === hoveredNode;
+    ctx.save();
+
+    if (n.type === 'center') {
+      // Glow
+      const g = ctx.createRadialGradient(s.x, s.y, 20, s.x, s.y, 100);
+      g.addColorStop(0, 'rgba(26,86,219,0.35)'); g.addColorStop(1, 'rgba(26,86,219,0)');
+      ctx.beginPath(); ctx.arc(s.x, s.y, 100, 0, Math.PI*2);
+      ctx.fillStyle = g; ctx.fill();
+      ctx.beginPath(); ctx.arc(s.x, s.y, 70, 0, Math.PI*2);
+      ctx.fillStyle = '#1a56db'; ctx.fill();
+      drawText(ctx, 'WHY', s.x, s.y - 10, `bold ${Math.max(9,Math.round(20*scale/0.78))}px Bebas Neue, sans-serif`, 'white');
+      drawText(ctx, 'Baltazar', s.x, s.y + 12, `${Math.max(7,Math.round(11*scale/0.78))}px DM Sans, sans-serif`, 'rgba(255,255,255,0.45)');
+
+    } else if (n.type === 'branch' || n.type === 'subbranch') {
+      const rx = n.type === 'branch' ? 65 : 52, ry = n.type === 'branch' ? 28 : 22;
+      ctx.beginPath(); ctx.ellipse(s.x, s.y, rx, ry, 0, 0, Math.PI*2);
+      ctx.fillStyle = isHov ? (n.type==='branch'?'#d9a060':'#b07840') : (n.type==='branch'?'#c8894a':'#9b6835');
+      ctx.fill();
+      const lines = n.label.split('\n');
+      const fs = n.type === 'branch' ? Math.max(7, Math.round(11*scale/0.78)) : Math.max(6, Math.round(9.5*scale/0.78));
+      const lh = n.type === 'branch' ? 13 : 11;
+      ctx.fillStyle = '#fff8f0';
+      ctx.font = `600 ${fs}px DM Sans, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      lines.forEach((line, i) => ctx.fillText(line, s.x, s.y + (i-(lines.length-1)/2)*lh));
+
+    } else {
+      // Leaf
+      ctx.beginPath(); ctx.arc(s.x, s.y, 34, 0, Math.PI*2);
+      ctx.fillStyle = isHov ? '#263050' : '#1c2438';
+      ctx.fill();
+      ctx.strokeStyle = isHov ? '#f4a300' : 'rgba(100,130,200,0.25)';
+      ctx.lineWidth = isHov ? 1.5 : 1; ctx.stroke();
+      const lines = n.label.split('\n');
+      const fs = Math.max(6, Math.round(9*scale/0.78));
+      ctx.fillStyle = '#a8b8d8';
+      ctx.font = `500 ${fs}px DM Sans, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      lines.forEach((line, i) => ctx.fillText(line, s.x, s.y + (i-(lines.length-1)/2)*11));
+    }
+    ctx.restore();
+  });
+}
+
+function drawText(ctx, text, x, y, font, color) {
+  ctx.font = font; ctx.fillStyle = color;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y);
+}
+
+// ── INTERACTION ───────────────────────────────────────────────────────────────
+let hoveredNode = null, draggingNode = null, dragWX = 0, dragWY = 0;
+let panStart = null, ctxNodeId = null;
+let modalMode = 'add-leaf', editingNodeId = null, addParentId = null;
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  if (draggingNode) {
+    const w = screenToWorld(mx, my);
+    draggingNode.ox = w.ox - dragWX; draggingNode.oy = w.oy - dragWY;
+    render(); return;
+  }
+  if (panStart) { camX += e.clientX-panStart.x; camY += e.clientY-panStart.y; panStart={x:e.clientX,y:e.clientY}; render(); return; }
+  const n = nodeAt(mx, my);
+  const prev = hoveredNode; hoveredNode = n?.id || null;
+  if (hoveredNode !== prev) render();
+  const tt = document.getElementById('tooltip');
+  if (n?.info) {
+    document.getElementById('tt-title').textContent = n.label.replace(/\n/g,' ');
+    document.getElementById('tt-body').textContent = n.info;
+    tt.style.display='block';
+    tt.style.left = Math.min(e.clientX+15,W-260)+'px';
+    tt.style.top = Math.min(e.clientY-10,H-100)+'px';
+  } else tt.style.display='none';
+  canvas.style.cursor = n ? 'grab' : 'default';
+});
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  document.getElementById('ctx-menu').style.display='none';
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX-rect.left, my = e.clientY-rect.top;
+  const n = nodeAt(mx, my);
+  if (n) { const w=screenToWorld(mx,my); draggingNode=n; dragWX=w.ox-n.ox; dragWY=w.oy-n.oy; canvas.style.cursor='grabbing'; }
+  else { panStart={x:e.clientX,y:e.clientY}; canvas.style.cursor='grabbing'; }
+});
+window.addEventListener('mouseup', () => { draggingNode=null; panStart=null; canvas.style.cursor='default'; });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  scale = Math.max(0.2, Math.min(3, scale*(e.deltaY>0?0.92:1.09)));
+  render();
+}, { passive:false });
+
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const n = nodeAt(e.clientX-rect.left, e.clientY-rect.top);
+  if (!n) return;
+  ctxNodeId = n.id;
+  const menu = document.getElementById('ctx-menu');
+  // Show/hide "agregar subrama" only for center and branches
+  const addBranchItem = document.getElementById('ctx-add-branch-item');
+  addBranchItem.style.display = (n.type==='center'||n.type==='branch') ? 'block' : 'none';
+  addBranchItem.textContent = n.type==='center' ? '🟠 Agregar rama' : '🟤 Agregar subrama';
+  menu.style.display='block';
+  menu.style.left = Math.min(e.clientX,W-180)+'px';
+  menu.style.top = Math.min(e.clientY,H-150)+'px';
+  menu.querySelector('.danger').style.opacity = n.type==='center'?'0.3':'1';
+  menu.querySelector('.danger').style.pointerEvents = n.type==='center'?'none':'auto';
+});
+document.addEventListener('click', () => document.getElementById('ctx-menu').style.display='none');
+
+// ── CONTEXT ACTIONS ───────────────────────────────────────────────────────────
+function ctxEdit() {
+  document.getElementById('ctx-menu').style.display='none';
+  const n = nodes.find(x=>x.id===ctxNodeId); if(!n) return;
+  editingNodeId=ctxNodeId; modalMode='edit';
+  document.getElementById('modal-title').textContent='EDITAR NODO';
+  document.getElementById('modal-label').value=n.label;
+  document.getElementById('modal-info').value=n.info;
+  document.getElementById('modal-confirm').textContent='Guardar';
+  document.getElementById('parent-selector-wrap').style.display='none';
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function ctxAddBranch() {
+  document.getElementById('ctx-menu').style.display='none';
+  const p = nodes.find(x=>x.id===ctxNodeId);
+  addParentId = ctxNodeId;
+  modalMode = p.type==='center' ? 'add-branch' : 'add-subbranch';
+  openFormModal(modalMode==='add-branch' ? 'AGREGAR RAMA' : 'AGREGAR SUBRAMA');
+}
+function ctxAddLeaf() {
+  document.getElementById('ctx-menu').style.display='none';
+  addParentId=ctxNodeId; modalMode='add-leaf';
+  openFormModal('AGREGAR NODO');
+}
+
+function openFormModal(title) {
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-label').value='';
+  document.getElementById('modal-info').value='';
+  document.getElementById('modal-confirm').textContent='Agregar';
+  document.getElementById('parent-selector-wrap').style.display='none';
+  document.getElementById('modal-overlay').classList.add('show');
+  setTimeout(()=>document.getElementById('modal-label').focus(),100);
+}
+
+function ctxDelete() {
+  document.getElementById('ctx-menu').style.display='none';
+  const n=nodes.find(x=>x.id===ctxNodeId);
+  if(!n||n.type==='center') return;
+  if(!confirm(`¿Eliminar "${n.label.replace(/\n/g,' ')}" y todos sus hijos?`)) return;
+  function del(id) { const i=nodes.findIndex(x=>x.id===id); if(i>-1) nodes.splice(i,1); nodes.filter(x=>x.parentId===id).map(x=>x.id).forEach(del); }
+  del(ctxNodeId); render();
+}
+
+// ── TOOLBAR MODALS ────────────────────────────────────────────────────────────
+function openAddModal(type) {
+  addParentId = null; editingNodeId = null;
+  if (type==='branch') { modalMode='add-branch'; addParentId='center'; openFormModal('AGREGAR RAMA'); }
+  else if (type==='subbranch') {
+    modalMode='add-subbranch';
+    // Show parent selector with branches
+    const sel = document.getElementById('modal-parent');
+    sel.innerHTML = nodes.filter(n=>n.type==='branch').map(n=>`<option value="${n.id}">${n.label.replace('\n',' ')}</option>`).join('');
+    addParentId = sel.value;
+    document.getElementById('parent-selector-wrap').style.display='block';
+    openFormModal('AGREGAR SUBRAMA');
+  } else {
+    modalMode='add-leaf';
+    const sel = document.getElementById('modal-parent');
+    sel.innerHTML = nodes.filter(n=>n.type==='branch'||n.type==='subbranch').map(n=>`<option value="${n.id}">${n.label.replace('\n',' ')}</option>`).join('');
+    addParentId = sel.value;
+    document.getElementById('parent-selector-wrap').style.display='block';
+    openFormModal('AGREGAR NODO');
+  }
+}
+
+function closeModal() { document.getElementById('modal-overlay').classList.remove('show'); }
+
+function confirmModal() {
+  const label = document.getElementById('modal-label').value.trim();
+  const info = document.getElementById('modal-info').value.trim();
+  if (!label) { document.getElementById('modal-label').style.borderColor='#e74c3c'; return; }
+  document.getElementById('modal-label').style.borderColor='';
+
+  // Update parent from selector if visible
+  const wrap = document.getElementById('parent-selector-wrap');
+  if (wrap.style.display !== 'none') addParentId = document.getElementById('modal-parent').value;
+
+  if (modalMode==='edit') {
+    const n=nodes.find(x=>x.id===editingNodeId); if(n){n.label=label;n.info=info;}
+  } else {
+    const parent=nodes.find(x=>x.id===addParentId)||nodes[0];
+    const type = modalMode==='add-branch'?'branch': modalMode==='add-subbranch'?'subbranch':'leaf';
+    const dist = type==='branch'?240: type==='subbranch'?160:130;
+    const angle=Math.random()*Math.PI*2;
+    nodes.push({ id:'n'+(nextId++), type, label, info, ox:parent.ox+Math.cos(angle)*dist, oy:parent.oy+Math.sin(angle)*dist, parentId:addParentId });
+  }
+  closeModal(); render();
+}
+
+document.getElementById('modal-label').addEventListener('keydown', e=>{if(e.key==='Enter')confirmModal();});
+document.getElementById('modal-overlay').addEventListener('click', e=>{if(e.target===e.currentTarget)closeModal();});
+
+function resetView() { camX=0; camY=0; scale=0.78; render(); }
+function showHelp() { alert('🗺️ CAREER MAP — Controles\n\n• Arrastra un nodo para reubicarlo\n• Arrastra el fondo para mover la vista\n• Scroll = zoom in/out\n• Botón "⚙ Ordenar" = distribuye todos los nodos automáticamente\n• Botón "⌖ Centrar" = regresa al centro\n• Click derecho sobre un nodo = Editar / Agregar subrama o nodo / Eliminar\n• "+ Rama" = rama principal desde el centro\n• "+ Subrama" = subnivel dentro de una rama\n• "+ Nodo" = nodo hoja (nivel más detallado)'); }
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+autoLayout();
+resize();
+</script>
+</body>
+</html>
